@@ -306,3 +306,108 @@ If step 4 gives a decent correlation, the whole capability-layer approach is val
 you can mass-produce the remaining axes with confidence. If it doesn't, you have lost one
 day instead of six weeks — and you still have the statistical layer (doc 03 §3.1), which
 needs no parser at all.
+
+---
+
+## 9.8 Measured reality check — and a correction to §9.4
+
+The prototype in §9.7 was actually run against live `dotaconstants` data. It failed, in a
+way that changes the recommended design. Recording it here because the failure is more
+instructive than the plan was.
+
+### What the file contains
+
+789 hero abilities. Top-level fields and their coverage:
+
+| field | present on | values |
+|---|---|---|
+| `attrib` | 789 | per-level numbers — 6,068 rows total |
+| `behavior` | 787 | No Target 216, Unit Target 211, Point Target 186, Passive 184, AOE 117, Channeled 28 |
+| `cd` / `mc` | 590 / 550 | cooldown, mana cost |
+| `bkbpierce` | 521 | Yes 160 / No 354 |
+| `dispellable` | 455 | Yes 219 / No 183 / Strong Dispels Only 53 |
+| `dmg_type` | 422 | Magical 301 / Physical 80 / Pure 31 |
+| `target_team` | 299 | Enemy 210 / Friendly 64 / Both 19 |
+| `target_type` | 296 | Hero 276 / Basic 207 / Building 12 / Tree 6 |
+| `is_innate` | 126 | innate abilities |
+
+### The long tail is fatal to name-matching
+
+```
+6,068 attrib rows → 2,892 distinct key names, 2,381 of which appear exactly ONCE
+top  25 headers → 36% of rows | top 100 → 46% | top 400 → 59%
+```
+
+### The prototype result
+
+Header-matching every `*STUN*` header, summing per hero:
+
+```
+heroes with a stun found: 52 of 127
+TOP:  alchemist 6.45 · mirana 5.00 · magnataur 4.25 · beastmaster 4.00
+ZERO: axe, bane, crystal_maiden, faceless_void, legion_commander,
+      naga_siren, elder_titan, pudge, disruptor, lich, ...
+```
+
+Wrong on sight — Axe, Bane, Faceless Void, Legion Commander and Naga Siren at zero
+control; Alchemist top only because `stun_min` and `stun_max` are two halves of one
+number and both got summed.
+
+### Why — the semantics are simply not in the file
+
+```
+Berserker's Call    DURATION: [2.1, 2.4, 2.7, 3]   bkbpierce=Yes  dispellable=No
+Frostbite           DURATION: [1.5, 2, 2.5, 3]     bkbpierce=No   dispellable=Yes
+Fiend's Grip        DURATION: [4.75, 5.25, 5.75]   bkbpierce=Yes  dispellable=Strong Only
+Chronosphere        DURATION: [3.75, 4.25, 4.75]   bkbpierce=Yes  dispellable=No
+Duel                DURATION: [4, 4.5, 5]          bkbpierce=Yes  dispellable=No
+Song of the Siren   DURATION: 7                    bkbpierce=No   dispellable=No
+Hex                 DURATION: [2, 2.4, 2.8, 3.2]   bkbpierce=No   dispellable=Strong Only
+```
+
+Every real disable is labelled only `DURATION:` — the same generic header (276 rows) used
+for buff, slow, vision and illusion durations. **The durations are present and clean; the
+meaning is absent.** Whether a `DURATION` is a loss of control exists only in the
+description text and in the reader's head.
+
+So §9.4's header-allowlist works for damage type and cooldowns, but **not** for anything
+about control. Revised approach:
+
+### The corrected principle: the file owns the numbers, you own the categories
+
+Hand-author ~150 rows, once, mapping ability → control class and naming which field holds
+the length:
+
+```yaml
+axe_berserkers_call:        {class: taunt,  source: "DURATION"}
+crystal_maiden_frostbite:   {class: root,   source: "DURATION"}
+faceless_void_chronosphere: {class: stasis, source: "DURATION"}
+lion_impale:                {class: stun,   source: "STUN DURATION"}
+lion_voodoo:                {class: hex,    source: "DURATION"}
+```
+
+You are **not** recording "Lion has 2.2 seconds". You are recording *"Earth Spike is a
+stun and its length lives in STUN DURATION"*. The parser reads the current value from the
+current patch.
+
+This keeps every property that motivated the game-file approach:
+
+- **Patch-scalable** — patches change numbers (auto), not categories (stable). A reworked
+  hero is a few rows to review, and `unmapped.csv` flags which.
+- **Objective where it counts** — you never invent magnitudes, only classifications any
+  player would agree with, in a reviewable file. Weights remain fitted, not chosen.
+- **Consistent** (§9.3b) — one explicit, visible rule per hero.
+- **Bounded** — ~500 hero-ability pairs, ~150 involving control. An evening, not a
+  research problem.
+
+### What stays fully automatic (no curation)
+
+`dmg_type` (the physical/magical/pure split, 422 abilities), `bkbpierce`, `dispellable`,
+`behavior` (passive / channeled / AoE), `target_team` (enemy = disable, friendly = save),
+cooldowns, mana costs, `is_innate`.
+
+Worth noting: `bkbpierce=Yes` **and** `dispellable=No` co-occur on Berserker's Call,
+Chronosphere and Duel. That pair is machine-readable and is a strong signal of heavy
+unavoidable control. **Build the automatic flag-based proxy first, then the 150-row
+curated table, and report which predicts better** — that comparison is a small, clean,
+self-contained experiment and belongs in the report either way.
