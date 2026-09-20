@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>autodrafter — Captain's Mode</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div id="setup" class="setup">
+  <div class="setup-card">
+    <h1>autodrafter</h1>
+    <p class="sub">Prototip — Captain's Mode, tu împotriva algoritmului</p>
+
+    <div class="field">
+      <label>Partea ta</label>
+      <div class="choice" id="sideChoice">
+        <button class="opt selected" data-side="FP">
+          <strong>First Pick</strong><span>alegi primul erou · adversarul banează primul</span>
+        </button>
+        <button class="opt" data-side="FB">
+          <strong>First Ban</strong><span>banezi primul · adversarul alege primul erou</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Algoritmul adversarului</label>
+      <div class="choice" id="algoChoice">
+        <button class="opt" data-algo="greedy"><strong>Greedy</strong><span>referință · ~0,2 ms</span></button>
+        <button class="opt" data-algo="alphabeta"><strong>Alfa-beta</strong><span>adâncime 4 · ~10 ms</span></button>
+        <button class="opt selected" data-algo="mcts"><strong>MCTS</strong><span>800 iterații · ~0,5 s</span></button>
+      </div>
+    </div>
+
+    <button id="start" class="primary">Începe draftul</button>
+    <p class="warn" id="modelWarn" hidden></p>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="team-clock" id="clockFP"></div>
+    <div class="phase">
+      <div class="phase-label" id="phaseLabel">—</div>
+      <div class="timer" id="timer">30</div>
+      <div class="phase-sub" id="phaseSub"></div>
+    </div>
+    <div class="team-clock right" id="clockFB"></div>
+  </header>
+
+  <div class="winbar" title="Probabilitatea estimată de câștig">
+    <div class="winbar-fill" id="winFill"></div>
+    <span class="winbar-label left"  id="winLeft">50%</span>
+    <span class="winbar-label right" id="winRight">50%</span>
+  </div>
+
+  <main class="layout">
+    <aside class="team" id="teamLeft"></aside>
+
+    <section class="center">
+      <div class="filters">
+        <div class="attrs" id="attrs">
+          <button class="attr selected" data-attr="all">Toți</button>
+          <button class="attr" data-attr="str">Forță</button>
+          <button class="attr" data-attr="agi">Agilitate</button>
+          <button class="attr" data-attr="int">Inteligență</button>
+        </div>
+        <input id="search" type="search" placeholder="Caută erou…" autocomplete="off">
+        <label class="toggle"><input type="checkbox" id="showHints" checked> Sugestii</label>
+      </div>
+      <div class="grid" id="grid"></div>
+      <div class="confirm-bar">
+        <div class="selected-info" id="selectedInfo">Selectează un erou</div>
+        <button id="lock" class="primary" disabled>Confirmă</button>
+      </div>
+    </section>
+
+    <aside class="team" id="teamRight"></aside>
+  </main>
+
+  <section class="hints" id="hints"></section>
+
+  <footer class="sequence" id="sequence"></footer>
+</div>
+
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>
