@@ -48,6 +48,13 @@ class DraftModel:
     counter: np.ndarray         # (n, n)
     synergy: np.ndarray         # (n, n)
     meta: dict
+    # Avantajul de partidă al lui Radiant, în log-odds: interceptul regresiei din
+    # etl/build_model.py. NU se adună în score() și NU trebuie „reparat” adunându-l
+    # acolo: o constantă adăugată scorului tuturor opțiunilor nu schimbă niciun
+    # argmax, deci nu influențează nicio decizie de draft (iar căutarea nici nu știe
+    # care echipă e Radiant). Servește doar la PREDICȚIA meciurilor reale, în
+    # benchmark/: P(Radiant câștigă) = σ(score + side_advantage).
+    side_advantage: float = 0.0
 
     @property
     def n(self) -> int:
@@ -97,13 +104,16 @@ class DraftModel:
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(path, beta=self.beta, counter=self.counter,
-                            synergy=self.synergy, meta=json.dumps(self.meta))
+                            synergy=self.synergy, meta=json.dumps(self.meta),
+                            side_advantage=np.float64(self.side_advantage))
 
     @classmethod
     def load(cls, path: Path) -> "DraftModel":
         z = np.load(path, allow_pickle=False)
+        # fișierele mai vechi nu au avantajul de partidă: implicit 0.0
+        side = float(z["side_advantage"]) if "side_advantage" in z.files else 0.0
         return cls(beta=z["beta"], counter=z["counter"], synergy=z["synergy"],
-                   meta=json.loads(str(z["meta"])))
+                   meta=json.loads(str(z["meta"])), side_advantage=side)
 
     @classmethod
     def zeros(cls, n: int) -> "DraftModel":

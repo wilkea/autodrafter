@@ -1,4 +1,18 @@
-"""Construiește modelul real din API-ul public OpenDota.
+"""⚠ ÎNVECHIT — NU folosi acest script pentru modelul curent. Modelul se construiește
+acum cu `fetch_publicmatches.py` + `build_model.py`, dintr-o singură sursă.
+
+Defectul găsit de `benchmark/` (raportul din benchmark/results/): counter se
+calculează aici ca reziduu față de β, dar β vine din `heroStats` (tranșele alese) iar
+victoriile din `/matchups` — ALT set de meciuri, altă fereastră, probabil toate
+tranșele. Reziduul absoarbe diferența dintre cele două surse în loc să măsoare
+interacțiunea, deci matricea counter conține un nivel de erou de semn opus lui β
+(sumele pe rânduri corelează −0.67 cu β). Rezultat măsurat pe 8.347 de meciuri ranked:
+β singur AUC 0.590, counter singur 0.441 (anti-predictiv), modelul complet 0.488 —
+mai rău decât o monedă (log-loss 0.7152 față de 0.6931).
+Fișierul rămâne în repo ca parte din povestea metodologică a proiectului: o
+componentă calculată din două surse nu e „mai multă informație", e o inconsecvență.
+
+Construiește modelul real din API-ul public OpenDota (metoda veche).
 
     python -m autodrafter.etl.fetch_opendota --bracket high
 
