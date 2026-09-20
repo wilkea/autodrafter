@@ -19,6 +19,7 @@ Sinergia (aceeași echipă) NU este expusă de API — necesită interogări SQL
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from pathlib import Path
@@ -27,7 +28,8 @@ import numpy as np
 import requests
 
 from autodrafter.heroes import load_catalog
-from autodrafter.model import DraftModel, default_model_path, logit, shrink
+from autodrafter.model import (DATA_DIR, DraftModel, default_model_path, logit,
+                               shrink)
 
 API = "https://api.opendota.com/api"
 
@@ -39,27 +41,71 @@ BRACKETS = {
 }
 
 
-def _get(session: requests.Session, url: str, key: str | None, tries: int = 4):
+CACHE = DATA_DIR / "cache"
+
+
+def _get(session: requests.Session, url: str, key: str | None, tries: int = 5):
+    """Cerere cu reîncercări. La eșec ridică o eroare care SPUNE ce s-a întâmplat.
+
+    Limita gratuită OpenDota este de 60 de cereri pe minut și 2000 pe zi; la
+    depășire răspunde cu 429 și, de regulă, cu antetul Retry-After.
+    """
     params = {"api_key": key} if key else None
+    last = "niciun răspuns"
+
     for attempt in range(tries):
         try:
             r = session.get(url, params=params, timeout=30)
-            if r.status_code == 429:
-                time.sleep(2 ** attempt * 2)
-                continue
-            r.raise_for_status()
-            return r.json()
         except requests.RequestException as exc:
-            if attempt == tries - 1:
-                raise
-            print(f"  reîncercare ({exc.__class__.__name__}) …", file=sys.stderr)
-            time.sleep(2 ** attempt)
-    raise RuntimeError("inaccesibil")
+            last = f"{exc.__class__.__name__}: {exc}"
+            print(f"      rețea indisponibilă ({exc.__class__.__name__}), reîncerc …",
+                  file=sys.stderr)
+        else:
+            if r.status_code == 200:
+                return r.json()
+            last = f"HTTP {r.status_code} — {r.text[:200]}"
+            if r.status_code == 429:
+                wait = float(r.headers.get("Retry-After") or 0) or min(90.0, 5 * 2 ** attempt)
+                print(f"      limita de cereri atinsă, aștept {wait:.0f}s "
+                      f"(încercarea {attempt + 1}/{tries}) …", file=sys.stderr)
+                time.sleep(wait)
+                continue
+            if 400 <= r.status_code < 500:
+                break        # 4xx care nu e 429: reîncercarea nu ajută
+            print(f"      {last[:60]}, reîncerc …", file=sys.stderr)
+        time.sleep(2 ** attempt)
+
+    raise RuntimeError(
+        f"cerere eșuată: {url}\n"
+        f"  ultimul răspuns: {last}\n"
+        f"  dacă este 429, mărește --sleep (ex. --sleep 2) sau folosește --api-key"
+    )
+
+
+def _matchups(session, hero, key, sleep: float, use_cache: bool) -> list:
+    """Matchup-urile unui erou, cu cache pe disc.
+
+    Colectarea durează minute și poate cădea la jumătate. Fără cache, o cădere
+    la eroul 90 înseamnă reluarea de la zero; cu cache, reluarea continuă.
+    """
+    path = CACHE / f"matchups_{hero.hero_id}.json"
+    if use_cache and path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            path.unlink(missing_ok=True)
+
+    rows = _get(session, f"{API}/heroes/{hero.hero_id}/matchups", key)
+    if use_cache:
+        CACHE.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(rows), encoding="utf-8")
+    time.sleep(sleep)
+    return rows
 
 
 def build(bracket: str = "high", api_key: str | None = None,
           k_beta: float = 2000.0, k_counter: float = 300.0,
-          sleep: float = 1.1) -> DraftModel:
+          sleep: float = 1.5, use_cache: bool = True) -> DraftModel:
     cat = load_catalog()
     n = len(cat)
     cols = BRACKETS[bracket]
@@ -91,8 +137,12 @@ def build(bracket: str = "high", api_key: str | None = None,
     print(f"[2/2] matchups pentru {n} eroi (≈{n * sleep / 60:.1f} min) …")
     counter = np.zeros((n, n))
     obs = np.zeros((n, n))
+    cached = sum(1 for h in cat if (CACHE / f"matchups_{h.hero_id}.json").exists())
+    if use_cache and cached:
+        print(f"      {cached}/{n} deja în cache, se reiau doar restul")
+
     for i, h in enumerate(cat, 1):
-        rows = _get(s, f"{API}/heroes/{h.hero_id}/matchups", api_key)
+        rows = _matchups(s, h, api_key, sleep, use_cache)
         for row in rows:
             opp = cat.by_id.get(row.get("hero_id"))
             g = float(row.get("games_played") or 0)
@@ -103,9 +153,8 @@ def build(bracket: str = "high", api_key: str | None = None,
                    - logit(base_wr))
             counter[h.idx, opp.idx] = raw
             obs[h.idx, opp.idx] = g
-        if i % 20 == 0 or i == n:
+        if i % 10 == 0 or i == n:
             print(f"      {i}/{n}")
-        time.sleep(sleep)
 
     counter = shrink(counter, obs, k_counter)
     counter = (counter - counter.T) / 2.0        # impunem antisimetria
@@ -128,11 +177,15 @@ def main() -> None:
     ap.add_argument("--api-key", default=None, help="cheie OpenDota (opțional, ridică limita)")
     ap.add_argument("--k-beta", type=float, default=2000.0)
     ap.add_argument("--k-counter", type=float, default=300.0)
-    ap.add_argument("--sleep", type=float, default=1.1, help="pauză între cereri (secunde)")
+    ap.add_argument("--sleep", type=float, default=1.5,
+                    help="pauză între cereri (secunde); limita gratuită e 60/minut")
+    ap.add_argument("--no-cache", action="store_true",
+                    help="ignoră cache-ul din data/cache și descarcă tot din nou")
     ap.add_argument("--out", type=Path, default=None)
     a = ap.parse_args()
 
-    model = build(a.bracket, a.api_key, a.k_beta, a.k_counter, a.sleep)
+    model = build(a.bracket, a.api_key, a.k_beta, a.k_counter, a.sleep,
+                  use_cache=not a.no_cache)
     out = a.out or default_model_path()
     model.save(out)
     print(f"\nScris {out} · {model.meta}")
