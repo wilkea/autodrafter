@@ -12,3 +12,5 @@ data/cache/
 # rapoartele .md din benchmark/results/ rămân în repo
 benchmark/data/
 benchmark/results/*.json
+data/abilities.json
+data/hero_abilities.json
