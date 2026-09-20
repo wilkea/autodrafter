@@ -7,7 +7,7 @@ perfectă, cu ~10³⁰ stări accesibile.
 Contribuția evaluată este **compararea controlată a algoritmilor de căutare**
 (greedy, alfa-beta, MCTS) și măsurarea abaterii lor față de optimul exact pe o
 instanță redusă — nu predicția rezultatului meciului. Planificarea completă e
-în `docs/01`…`docs/10`.
+în `docs/01`…`docs/10`; starea curentă, cifrele și deciziile deschise: `docs/11-stare-si-decizii.md`.
 
 ## Comenzi
 
@@ -15,9 +15,18 @@ instanță redusă — nu predicția rezultatului meciului. Planificarea complet
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn autodrafter.server:app --reload      # http://127.0.0.1:8000
-pytest tests -q                              # 20 de teste
-python -m autodrafter.etl.fetch_opendota --bracket high   # date reale, se rulează local
+pytest tests -q                              # 102 de teste
+
+# modelul: meciuri brute -> data/model.npz (se rulează local, durează ore la 250k)
+python -m autodrafter.etl.fetch_publicmatches --count 250000 --min-rank 50
+python -m autodrafter.etl.build_model
+
+# banc de testare al funcției de evaluare (vezi benchmark/README.md)
+python -m benchmark.evaluate && python -m benchmark.report
 ```
+
+`etl/fetch_opendota.py` (β din `heroStats`, counter din `/matchups`) e ÎNVECHIT: are un defect
+măsurat, descris în docstring-ul lui. Rămâne în repo ca istorie metodologică.
 
 Fără `data/model.npz`, aplicația pornește pe un model placeholder — numere
 inventate, cu structură realistă. Interfața avertizează explicit.
@@ -46,6 +55,15 @@ Orice îmbogățire a modelului (abilități, sinergii, jucători) se face în
   generate de `etl/`, versionate pe patch.
 - Ponderile modelului se estimează prin regresie pe meciuri reale, nu se aleg
   de mână.
+- **Toate componentele modelului (β, counter, synergy, avantajul de partidă) vin din ACELEAȘI
+  meciuri brute.** Amestecarea surselor a produs un model mai rău decât o monedă
+  (counter calculat față de un β din altă sursă). `counter` și `synergy` se centrează
+  obligatoriu (fără nivel de erou), iar `build_model.py` se oprește dacă
+  |corr(sumele pe rânduri, β)| ≥ 0.15.
+- Împărțirea train/test e CRONOLOGICĂ (80/20 după `start_time`), niciodată aleatoare;
+  `benchmark/` exclude orice meci anterior hold-out-ului din meta modelului.
+- `DraftModel.side_advantage` NU se adună în `score()`: o constantă nu schimbă niciun argmax
+  de draft. Se folosește doar la predicția meciurilor reale (în `benchmark/`).
 - Fișierele de date mari nu intră în repo; se descarcă prin `etl/` și stau în
   `.gitignore`.
 - Ordinea fazelor din `game.py` (`_SCHEDULE`) trebuie verificată față de

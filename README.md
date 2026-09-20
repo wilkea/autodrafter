@@ -7,10 +7,17 @@ o instanță rezolvabilă exact.
 
 ## Stare
 
-Prototip funcțional: Captain's Mode complet (24 de acțiuni), jucător împotriva
-algoritmului, cu alegerea părții (First Pick / First Ban) și trei algoritmi
-comutabili. Modelul de evaluare rulează implicit pe date placeholder; datele
-reale se obțin cu scriptul de colectare OpenDota.
+Prototip funcțional: Captain's Mode complet (24 de acțiuni, ordinea asimetrică 7.34+), jucător
+împotriva algoritmului, cu alegerea părții (First Pick / Second Pick) și trei algoritmi
+comutabili (greedy, alfa-beta, MCTS), plus un mod „draft instant" în care doi algoritmi joacă
+ambele părți și rezultatul apare la final.
+
+Modelul de evaluare se construiește din meciuri brute OpenDota (`etl/fetch_publicmatches.py` +
+`etl/build_model.py`), cu împărțire cronologică 80/20. Pe 32.244 de meciuri nevăzute la
+antrenare are AUC 0,607 și bate ambele baze de comparație; fără `data/model.npz` aplicația
+pornește pe un model placeholder (numere inventate) și interfața avertizează. Cifrele, limitele și
+deciziile deschise sunt în [`docs/11-stare-si-decizii.md`](docs/11-stare-si-decizii.md);
+banca de testare e descrisă în [`benchmark/README.md`](benchmark/README.md).
 
 ## Rulare
 
@@ -18,10 +25,11 @@ reale se obțin cu scriptul de colectare OpenDota.
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn autodrafter.server:app --reload      # http://127.0.0.1:8000
-pytest tests -q                              # 20 de teste
+pytest tests -q                              # 102 de teste
 ```
 
-Date reale (se rulează local): `python -m autodrafter.etl.fetch_opendota --bracket high`
+Date reale (se rulează local, durează ore): `python -m autodrafter.etl.fetch_publicmatches --count 250000 --min-rank 50`
+apoi `python -m autodrafter.etl.build_model`. Cât de bun e modelul: `benchmark/README.md`.
 
 ## Ideea în două fraze
 
