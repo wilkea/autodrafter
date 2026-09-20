@@ -17,10 +17,10 @@
       <label>Partea ta</label>
       <div class="choice" id="sideChoice">
         <button class="opt selected" data-side="FP">
-          <strong>First Pick</strong><span>alegi primul erou · adversarul banează primul</span>
+          <strong>First Pick</strong><span>banezi și alegi primul · ban-uri 3-2-2</span>
         </button>
         <button class="opt" data-side="FB">
-          <strong>First Ban</strong><span>banezi primul · adversarul alege primul erou</span>
+          <strong>Second Pick</strong><span>adversarul acționează primul · ban-uri 4-1-2</span>
         </button>
       </div>
     </div>
@@ -35,6 +35,27 @@
     </div>
 
     <button id="start" class="primary">Începe draftul</button>
+
+    <div class="instant">
+      <div class="field">
+        <label>Draft instant · algoritmul fiecărei părți · MCTS pe ambele ≈ 20 s</label>
+        <div class="pair">
+          <label class="pick-algo"><span>First Pick</span>
+            <select id="algoFP">
+              <option value="greedy">Greedy</option>
+              <option value="alphabeta">Alfa-beta</option>
+              <option value="mcts" selected>MCTS</option>
+            </select></label>
+          <label class="pick-algo"><span>Second Pick</span>
+            <select id="algoFB">
+              <option value="greedy">Greedy</option>
+              <option value="alphabeta">Alfa-beta</option>
+              <option value="mcts" selected>MCTS</option>
+            </select></label>
+        </div>
+      </div>
+      <button id="instant" class="secondary">Draft instant — algoritmii joacă ambele părți</button>
+    </div>
     <p class="warn" id="modelWarn" hidden></p>
   </div>
 </div>
@@ -57,32 +78,37 @@
   </div>
 
   <main class="layout">
-    <aside class="team" id="teamLeft"></aside>
-
     <section class="center">
       <div class="filters">
-        <div class="attrs" id="attrs">
-          <button class="attr selected" data-attr="all">Toți</button>
-          <button class="attr" data-attr="str">Forță</button>
-          <button class="attr" data-attr="agi">Agilitate</button>
-          <button class="attr" data-attr="int">Inteligență</button>
-        </div>
         <input id="search" type="search" placeholder="Caută erou…" autocomplete="off">
         <label class="toggle"><input type="checkbox" id="showHints" checked> Sugestii</label>
       </div>
-      <div class="grid" id="grid"></div>
+      <div class="heroes" id="grid"></div>
       <div class="confirm-bar">
         <div class="selected-info" id="selectedInfo">Selectează un erou</div>
+        <button id="top1" class="secondary" disabled
+                title="Joacă direct prima recomandare">Top 1</button>
         <button id="lock" class="primary" disabled>Confirmă</button>
       </div>
+      <section class="hints" id="hints"></section>
+      <button id="seeDraft" class="secondary see-draft">Vezi draftul</button>
     </section>
 
-    <aside class="team" id="teamRight"></aside>
+    <aside class="order">
+      <h3>Ordinea draftului</h3>
+      <div class="order-list" id="order"></div>
+    </aside>
   </main>
 
-  <section class="hints" id="hints"></section>
-
-  <footer class="sequence" id="sequence"></footer>
+  <div class="modal" id="draftModal" hidden>
+    <div class="modal-card" role="dialog" aria-label="Draftul">
+      <header class="modal-head">
+        <h2>Draftul</h2>
+        <button id="dmClose" class="modal-x" aria-label="Închide">✕</button>
+      </header>
+      <div id="dmBody"></div>
+    </div>
+  </div>
 </div>
 
 <script type="module" src="/static/app.js"></script>

@@ -26,7 +26,7 @@ _model = load_or_placeholder(len(_catalog))
 
 
 class NewGame(BaseModel):
-    side: str = Field("FP", description="FP = first pick, FB = first ban")
+    side: str = Field("FP", description="FP = first pick, FB = second pick")
     algorithm: str = "mcts"
     options: dict = Field(default_factory=dict)
 
@@ -34,6 +34,16 @@ class NewGame(BaseModel):
 class Move(BaseModel):
     session: str
     hero: int
+
+
+class Player(BaseModel):
+    algorithm: str = "mcts"
+    options: dict = Field(default_factory=dict)
+
+
+class InstantGame(BaseModel):
+    fp: Player = Field(default_factory=Player)
+    fb: Player = Field(default_factory=Player)
 
 
 def _session(sid: str):
@@ -61,6 +71,19 @@ def new_game(body: NewGame):
         raise HTTPException(400, f"algoritm necunoscut: {body.algorithm}")
     s = store.create(_model, Side(body.side), body.algorithm, body.options)
     moves = s.run_bot_turns()     # dacă botul începe, se mișcă imediat
+    return {**s.to_json(), "bot_moves": moves}
+
+
+@app.post("/api/instant")
+def instant_game(body: InstantGame):
+    """Draft instant: doi algoritmi joacă ambele părți; răspunsul vine la final."""
+    for p in (body.fp, body.fb):
+        if p.algorithm not in ALGORITHMS:
+            raise HTTPException(400, f"algoritm necunoscut: {p.algorithm}")
+    players = {Side.FP.value: (body.fp.algorithm, body.fp.options),
+               Side.FB.value: (body.fb.algorithm, body.fb.options)}
+    s = store.create(_model, None, body.fp.algorithm, body.fp.options, players)
+    moves = s.run_instant()
     return {**s.to_json(), "bot_moves": moves}
 
 

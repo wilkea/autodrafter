@@ -35,9 +35,11 @@ class TeamClock:
 class Session:
     id: str
     model: DraftModel
-    human: Side
+    human: Side | None                  # None = draft instant, fără jucător uman
     algorithm: str = "mcts"
     options: dict = field(default_factory=dict)
+    # doar la draftul instant: partea -> (algoritm, opțiuni)
+    players: dict[str, tuple[str, dict]] = field(default_factory=dict)
     state: DraftState = None            # type: ignore[assignment]
     log: list[dict] = field(default_factory=list)
     clocks: dict[str, TeamClock] = field(default_factory=dict)
@@ -53,8 +55,8 @@ class Session:
     # ---------- interogări ----------
 
     @property
-    def bot(self) -> Side:
-        return self.human.other
+    def bot(self) -> Side | None:
+        return None if self.human is None else self.human.other
 
     @property
     def is_bot_turn(self) -> bool:
@@ -103,13 +105,24 @@ class Session:
         """Adversarul algoritmic acționează o singură dată."""
         if self.state.is_terminal or not self.is_bot_turn:
             return None
-        result = self.searcher().search(self.state)
-        entry = self.act(result.best, by=f"bot:{self.algorithm}")
+        return self._play(self.searcher().search(self.state), self.algorithm)
+
+    def _play(self, result, algorithm: str) -> dict:
+        """Aplică mutarea aleasă de căutare și atașează costul ei în jurnal."""
+        entry = self.act(result.best, by=f"bot:{algorithm}")
         entry["elapsed_ms"] = round(result.elapsed_ms, 1)
         entry["nodes"] = result.nodes
         entry["evals"] = result.evals
         entry["value"] = round(result.top[0].value, 4)
         return entry
+
+    def run_instant(self) -> list[dict]:
+        """Draft instant: fiecare parte e jucată de algoritmul ei, până la final."""
+        moves = []
+        while not self.state.is_terminal:
+            name, opts = self.players[self.state.current.side.value]
+            moves.append(self._play(ALGORITHMS[name](self.model, **opts).search(self.state), name))
+        return moves
 
     def run_bot_turns(self, limit: int = 24) -> list[dict]:
         """Rulează toate turele consecutive ale botului (fazele îi pot da două la rând)."""
@@ -137,9 +150,11 @@ class Session:
             }
         return {
             "session": self.id,
-            "human": self.human.value,
-            "bot": self.bot.value,
+            "mode": "instant" if self.players else "duel",
+            "human": self.human.value if self.human else None,
+            "bot": self.bot.value if self.bot else None,
             "algorithm": self.algorithm,
+            "players": {side: name for side, (name, _) in self.players.items()},
             "turn": st.turn,
             "total_turns": len(SCHEDULE),
             "terminal": st.is_terminal,
@@ -172,11 +187,11 @@ class SessionStore:
     def __init__(self):
         self._sessions: dict[str, Session] = {}
 
-    def create(self, model: DraftModel, human: Side, algorithm: str,
-               options: dict) -> Session:
+    def create(self, model: DraftModel, human: Side | None, algorithm: str,
+               options: dict, players: dict | None = None) -> Session:
         sid = uuid.uuid4().hex[:12]
-        s = Session(id=sid, model=model, human=human,
-                    algorithm=algorithm, options=options)
+        s = Session(id=sid, model=model, human=human, algorithm=algorithm,
+                    options=options, players=players or {})
         self._sessions[sid] = s
         # prototip: păstrăm doar ultimele sesiuni, ca să nu crească memoria
         if len(self._sessions) > 32:

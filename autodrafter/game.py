@@ -11,8 +11,8 @@ from enum import Enum
 
 class Side(str, Enum):
     """Rolul echipei stabilit la coin toss, nu culoarea hărții."""
-    FP = "FP"   # first pick
-    FB = "FB"   # first ban
+    FP = "FP"   # first pick: acționează prima (ban și pick)
+    FB = "FB"   # second pick; numele vine din ordinea veche, în care banea prima
 
     @property
     def other(self) -> "Side":
@@ -33,13 +33,16 @@ class Turn:
 
 
 # Ordinea Captain's Mode: 14 ban-uri (7/echipă) + 10 pick-uri (5/echipă) = 24 acțiuni.
-# ATENȚIE: alternanța exactă în interiorul fazelor se modifică între patch-uri.
-# Verificați secvența față de patch-ul curent înainte de a raporta rezultate.
+# Ordinea asimetrică introdusă în 7.34 și păstrată în 7.41: ban-urile sunt
+# 3-2-2 pentru FP și 4-1-2 pentru FB, pick-urile 1-3-1 pentru ambele echipe;
+# faze de 7/2/3/6/4/2 acțiuni. Secvența a fost preluată de la dotapicks.com
+# (surse oficiale inaccesibile la scriere), deci de verificat pe patch-ul curent
+# înainte de a raporta rezultate.
 _SCHEDULE: list[tuple[int, Action, list[Side]]] = [
-    (1, Action.BAN,  [Side.FB, Side.FP, Side.FB, Side.FP]),
-    (1, Action.PICK, [Side.FP, Side.FB, Side.FB, Side.FP]),
-    (2, Action.BAN,  [Side.FB, Side.FP, Side.FB, Side.FP, Side.FB, Side.FP]),
-    (2, Action.PICK, [Side.FB, Side.FP, Side.FP, Side.FB]),
+    (1, Action.BAN,  [Side.FP, Side.FP, Side.FB, Side.FB, Side.FP, Side.FB, Side.FB]),
+    (1, Action.PICK, [Side.FP, Side.FB]),
+    (2, Action.BAN,  [Side.FP, Side.FP, Side.FB]),
+    (2, Action.PICK, [Side.FB, Side.FP, Side.FP, Side.FB, Side.FB, Side.FP]),
     (3, Action.BAN,  [Side.FP, Side.FB, Side.FP, Side.FB]),
     (3, Action.PICK, [Side.FP, Side.FB]),
 ]

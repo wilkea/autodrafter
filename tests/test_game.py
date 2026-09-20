@@ -18,6 +18,24 @@ def test_schedule_is_balanced():
     assert [t.index for t in SCHEDULE] == list(range(N_TURNS))
 
 
+def test_schedule_follows_asymmetric_order():
+    """Ordinea 7.34+: bans 3-2-2 (FP) vs 4-1-2 (FB), picks 1-3-1 pentru ambele."""
+    def per_phase(side, action):
+        return [sum(1 for t in SCHEDULE
+                    if t.phase == p and t.side is side and t.action is action)
+                for p in (1, 2, 3)]
+
+    assert per_phase(Side.FP, Action.BAN) == [3, 2, 2]
+    assert per_phase(Side.FB, Action.BAN) == [4, 1, 2]
+    # pick-urile: 1 în prima fază, 3 în a doua, 1 în a treia — pentru ambele echipe
+    for side in (Side.FP, Side.FB):
+        seq = [sum(1 for t in SCHEDULE if t.side is side and t.action is Action.PICK
+                   and lo <= t.index < hi)
+               for lo, hi in ((7, 9), (12, 18), (22, 24))]
+        assert seq == [1, 3, 1]
+    assert SCHEDULE[0].side is Side.FP            # FP acționează prima
+
+
 def test_state_is_immutable_and_rejects_reuse():
     s = DraftState(n_heroes=N)
     s2 = s.apply(0)
