@@ -2,7 +2,9 @@ __pycache__/
 *.py[cod]
 .venv/
 .pytest_cache/
-data/model.npz
+# data/model.npz NU este ignorat: are ~200 KB și trebuie să ajungă pe serverul
+# de desfășurare, altfel aplicația pornește pe modelul placeholder. Excepție
+# deliberată de la regula „fișierele de date mari nu intră în repo".
 data/model_*.npz
 # meciuri brute colectate de etl/fetch_publicmatches.py (mari, se descarcă local)
 data/raw_matches/

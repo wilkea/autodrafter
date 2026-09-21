@@ -8,6 +8,7 @@
   --pick:#3fb950; --banc:#f0533f; --ban:#8b2c2c;
 }
 *{box-sizing:border-box;margin:0;padding:0}
+html,body{max-width:100%;overflow-x:hidden}
 body{
   background:var(--bg); color:var(--txt);
   font:14px/1.45 "Segoe UI",Roboto,system-ui,sans-serif;
@@ -251,4 +252,30 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
   .layout{grid-template-columns:1fr}
   .order{position:static}
   .order-list{max-height:60vh}
+}
+
+/* ---------- telefon ----------
+   Bara de sus era singurul element care depășea lățimea ecranului (479px la
+   un viewport de 390px) și producea derulare orizontală pe toată pagina:
+   `.phase` avea min-width 190px, iar numele echipelor nu se puteau îngusta. */
+@media (max-width:560px){
+  /* Faza și cronometrul trec pe primul rând, pe toată lățimea; echipele rămân
+     dedesubt, ca numele lor să nu mai fie tăiate. */
+  .topbar{gap:4px 8px;padding:8px 10px;
+    grid-template-columns:1fr 1fr;
+    grid-template-areas:"phase phase" "left right"}
+  .phase{grid-area:phase;min-width:0}
+  #clockFP{grid-area:left}
+  #clockFB{grid-area:right}
+  .timer{font-size:24px}
+  .phase-label{font-size:10px;letter-spacing:.5px}
+  .phase-sub{font-size:10px}
+  .team-clock{gap:6px;min-width:0}
+  .tc-name{font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;flex:0 1 auto}
+  .tc-time{font-size:10px;white-space:nowrap}
+  .tc-you{font-size:9px;padding:0 4px}
+  .filters{gap:6px}
+  .confirm-bar{flex-wrap:wrap}
+  .confirm-bar .primary{flex:1 1 100%;min-width:0}
 }

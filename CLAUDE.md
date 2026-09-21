@@ -69,6 +69,19 @@ Orice îmbogățire a modelului (abilități, sinergii, jucători) se face în
 - Ordinea fazelor din `game.py` (`_SCHEDULE`) trebuie verificată față de
   patch-ul curent înainte de a raporta rezultate.
 
+## Desfășurare
+
+`render.yaml` + `requirements-serve.txt` desfășoară aplicația pe Render (proces
+persistent). Platformele serverless NU sunt potrivite: sesiunile de draft stau
+în memoria procesului (`SessionStore`), deci s-ar reseta între cereri.
+
+`data/model.npz` (~200 KB) **este versionat**, ca excepție deliberată de la
+regula fișierelor de date — fără el, aplicația desfășurată pornește pe
+placeholder. Se regenerează cu `build_model.py` și se comite din nou.
+
+`scikit-learn` nu intră în dependențele de rulare: e folosit doar de
+`etl/build_model.py`, care rulează local.
+
 ## Documentație de bibliotecă
 
 Pentru FastAPI, numpy, pytest și altele folosește **Context7**, configurat în

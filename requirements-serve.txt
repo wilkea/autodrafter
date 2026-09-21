@@ -1,0 +1,9 @@
+# Dependențele necesare DOAR pentru a servi aplicația.
+#
+# scikit-learn lipsește intenționat: este folosit exclusiv de
+# autodrafter/etl/build_model.py, care construiește modelul local și nu rulează
+# niciodată pe server. Scoaterea lui reduce substanțial imaginea de desfășurare.
+# Pentru dezvoltare completă folosiți requirements.txt.
+fastapi>=0.110
+uvicorn[standard]>=0.29
+numpy>=1.26

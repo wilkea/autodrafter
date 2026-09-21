@@ -1,0 +1,16 @@
+# Desfășurare pe Render (https://render.com/docs/blueprint-spec).
+#
+# Render rulează un PROCES PERSISTENT, nu funcții serverless. Aceasta este o
+# cerință, nu o preferință: sesiunile de draft trăiesc în memoria procesului
+# (`SessionStore` din autodrafter/session.py), deci pe o platformă serverless
+# draftul s-ar reseta ori de câte ori cererea ar nimeri altă instanță.
+services:
+  - type: web
+    name: autodrafter
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-serve.txt
+    startCommand: uvicorn autodrafter.server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
