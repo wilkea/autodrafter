@@ -57,8 +57,12 @@ async function boot() {
   $("instant").onclick = startInstant;
 }
 
+// Alfa-beta primește un buget de timp, nu o adâncime fixă: în faza de ban-uri
+// coboară singur până la 8 niveluri (altfel nu vede niciun pick și degenerează
+// în greedy), iar în faza de pick-uri se oprește mai sus, unde nodurile sunt
+// scumpe.
 const optsFor = (algo) => algo === "mcts" ? { iterations: 800 }
-                        : algo === "alphabeta" ? { depth: 4, k: 10 } : {};
+                        : algo === "alphabeta" ? { time_budget_ms: 500, k: 10 } : {};
 
 function bindChoice(containerId, attr, set) {
   const box = $(containerId);
